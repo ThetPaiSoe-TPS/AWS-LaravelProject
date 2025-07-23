@@ -1,0 +1,65 @@
+name: ShopNest Deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Add VPS host to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            cd ${{ secrets.VPS_PATH }}
+
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Install dependencies
+            composer install --no-dev --prefer-dist --optimize-autoloader
+            npm install --production
+            npm run build
+
+            # Maintenance mode
+            php artisan down || true
+
+            # Database migrations (uncomment if needed)
+             php artisan migrate --force
+            # php artisan migrate:fresh --seed
+            # php artisan shield:install --fresh
+            # php artisan db:seed --class=RoleSeeder
+            # php artisan db:seed --class=Merchantuser
+
+            # Cache and optimization
+            php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear
+            php artisan cache:clear
+
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Restart services
+            php artisan up
+            php artisan queue:restart
+
+            # Run scheduler once to catch immediate tasks
+            php artisan schedule:run
+          ENDSSH
