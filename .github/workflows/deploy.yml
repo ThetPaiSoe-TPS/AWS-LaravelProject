@@ -26,21 +26,30 @@ jobs:
       - name: Deploy to Server
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            set -e
             cd ${{ secrets.VPS_PATH }}
 
             git fetch origin main
             git reset --hard origin/main
 
+            # Ensure .env exists
+            if [ ! -f .env ]; then
+              cp .env.example .env
+            fi
+
             # Install dependencies
             composer install --no-dev --prefer-dist --optimize-autoloader
-            npm install --production
+            npm ci --production
             npm run build
+
+            # Set permissions
+            chmod -R ug+rwx storage bootstrap/cache
 
             # Maintenance mode
             php artisan down || true
 
             # Database migrations (uncomment if needed)
-             php artisan migrate --force
+            php artisan migrate --force
             # php artisan migrate:fresh --seed
             # php artisan shield:install --fresh
             # php artisan db:seed --class=RoleSeeder
