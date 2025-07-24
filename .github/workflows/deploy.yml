@@ -7,6 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,9 +25,12 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy to Server
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
-            set -e
             cd ${{ secrets.VPS_PATH }}
 
             git fetch origin main
@@ -39,7 +43,7 @@ jobs:
 
             # Install dependencies
             composer install --no-dev --prefer-dist --optimize-autoloader
-            npm ci --production
+            npm install --production
             npm run build
 
             # Set permissions
@@ -49,7 +53,7 @@ jobs:
             php artisan down || true
 
             # Database migrations (uncomment if needed)
-            php artisan migrate --force
+             php artisan migrate --force
             # php artisan migrate:fresh --seed
             # php artisan shield:install --fresh
             # php artisan db:seed --class=RoleSeeder
@@ -68,7 +72,5 @@ jobs:
             # Restart services
             php artisan up
             php artisan queue:restart
-
-            # Run scheduler once to catch immediate tasks
             php artisan schedule:run
           ENDSSH
