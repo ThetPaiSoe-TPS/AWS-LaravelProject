@@ -10,7 +10,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-
+Route::get('/testing', function () {
+    return 'testing';
+});
 
 Route::prefix('details')->group(function () {
     Route::get('/student', function () {
